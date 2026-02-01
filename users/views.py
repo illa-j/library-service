@@ -1,8 +1,8 @@
-from django.conf import settings
-from django.core.mail import send_mail
+from django.contrib.auth.hashers import make_password
 from django.db import transaction
 from django.urls import reverse
 from rest_framework import generics, status
+from rest_framework.generics import CreateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -13,13 +13,20 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView
 )
 
-from users.models import EmailVerificationToken
+from users.models import (
+    EmailVerificationToken,
+    PasswordChangeToken
+)
 from users.serializers import (
     UserSerializer,
     TokenBlacklistSerializer,
-    VerifyEmailSerializer
+    VerifyEmailSerializer,
+    PasswordChangeSerializer, ConfirmPasswordChangeSerializer
 )
-from users.tasks import send_verification_email
+from users.tasks import (
+    send_verification_email,
+    send_password_change_confirmation_email
+)
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -57,6 +64,65 @@ class CreateUserView(generics.CreateAPIView):
                     user.email
                 )
             )
+        )
+
+
+class PasswordChangeView(CreateAPIView):
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"
+    serializer_class = PasswordChangeSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        user = self.request.user
+
+        serializer.is_valid(raise_exception=True)
+
+        token = PasswordChangeToken.objects.create(
+            user=user,
+            password_hash=make_password(serializer.validated_data["password"])
+        )
+
+        confirm_link = (
+                self.request.build_absolute_uri(reverse("users:confirm_password_change"))
+                + f"?token={token.token}"
+        )
+
+        transaction.on_commit(
+            lambda: send_password_change_confirmation_email.apply_async(
+                args=(
+                    confirm_link,
+                    user.email
+                )
+            )
+        )
+
+        return Response(
+            {
+                "message": "confirmation email sent."
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+class ConfirmPasswordChangeView(APIView):
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "token_verification"
+
+    def get(self, request):
+        serializer = ConfirmPasswordChangeSerializer(
+            data=request.query_params
+        )
+        serializer.is_valid(raise_exception=True)
+
+        serializer.save()
+
+        return Response(
+            {
+                "detail": "Password changed successfully"
+            },
+            status=status.HTTP_200_OK
         )
 
 

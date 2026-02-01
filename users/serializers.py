@@ -1,8 +1,12 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from users.models import EmailVerificationToken
+from users.models import (
+    EmailVerificationToken,
+    PasswordChangeToken
+)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -60,5 +64,38 @@ class VerifyEmailSerializer(serializers.Serializer):
         user = self.token_obj.user
         user.is_active = True
         user.save(update_fields=["is_active"])
+        self.token_obj.delete()
+        return user
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    password = serializers.CharField(
+        write_only=True,
+        min_length=5,
+        style={"input_type": "password"},
+        validators=[validate_password]
+    )
+
+
+class ConfirmPasswordChangeSerializer(serializers.Serializer):
+    token = serializers.UUIDField()
+
+    def validate_token(self, value):
+        try:
+            token_obj = PasswordChangeToken.objects.get(token=value)
+        except PasswordChangeToken.DoesNotExist:
+            raise serializers.ValidationError("Invalid token")
+
+        if token_obj.is_expired():
+            raise serializers.ValidationError("Token has expired")
+
+        self.token_obj = token_obj
+        return value
+
+    def save(self):
+        user = self.token_obj.user
+        user.password = self.token_obj.password_hash
+        user.save(update_fields=["password"])
+
         self.token_obj.delete()
         return user

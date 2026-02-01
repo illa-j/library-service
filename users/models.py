@@ -62,3 +62,17 @@ class EmailVerificationToken(models.Model):
 
     def __str__(self):
         return f"{self.user.email}"
+
+
+class PasswordChangeToken(models.Model):
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.CASCADE,
+        related_name="password_change_tokens"
+    )
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+    password_hash = models.CharField(max_length=128)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_expired(self):
+        return self.created_at < timezone.now() - timedelta(hours=1)

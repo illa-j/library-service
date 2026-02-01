@@ -6,7 +6,10 @@ from users.views import (
     LogoutView,
     TokenObtainPairView,
     TokenRefreshView,
-    TokenVerifyView, VerifyEmailAPIView
+    TokenVerifyView,
+    VerifyEmailAPIView,
+    ConfirmPasswordChangeView,
+    PasswordChangeView,
 )
 
 
@@ -21,4 +24,6 @@ urlpatterns = [
     path("me/", ManageUserView.as_view(), name="me"),
     path("logout/", LogoutView.as_view(), name="logout"),
     path("verify-email/", VerifyEmailAPIView.as_view(), name="verify_email"),
+    path("password-change/", PasswordChangeView.as_view(), name="password_change"),
+    path("confirm-password-change/", ConfirmPasswordChangeView.as_view(), name="confirm_password_change"),
 ]
