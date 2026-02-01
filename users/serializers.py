@@ -28,6 +28,18 @@ class UserSerializer(serializers.ModelSerializer):
         return get_user_model().objects.create_user(**validated_data)
 
 
+class UserDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = (
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "is_staff"
+        )
+        read_only_fields = ("is_staff",)
+
 class TokenBlacklistSerializer(serializers.Serializer):
     refresh_token = serializers.CharField()
 

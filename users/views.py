@@ -21,7 +21,7 @@ from users.serializers import (
     UserSerializer,
     TokenBlacklistSerializer,
     VerifyEmailSerializer,
-    PasswordChangeSerializer, ConfirmPasswordChangeSerializer
+    PasswordChangeSerializer, ConfirmPasswordChangeSerializer, UserDetailSerializer
 )
 from users.tasks import (
     send_verification_email,
@@ -161,13 +161,29 @@ class LogoutView(APIView):
 
 
 class ManageUserView(generics.RetrieveUpdateAPIView):
-    serializer_class = UserSerializer
+    serializer_class = UserDetailSerializer
     permission_classes = (IsAuthenticated,)
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "auth"
 
     def get_object(self):
         return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
 
 
 class TokenObtainPairView(TokenObtainPairView):
