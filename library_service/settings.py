@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
+    "django_celery_beat",
     "users"
 ]
 
@@ -130,6 +131,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "users.User"
 
@@ -165,3 +167,17 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
+
+CELERY_BROKER_URL = os.environ["CELERY_BROKER_URL"]
+CELERY_RESULT_BACKEND = os.environ["CELERY_RESULT_BACKEND"]
+
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+
+CELERY_TIMEZONE = "UTC"
+CELERY_ENABLE_UTC = True
+
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60
