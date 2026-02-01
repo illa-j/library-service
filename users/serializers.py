@@ -38,7 +38,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
             "email",
             "is_staff"
         )
-        read_only_fields = ("is_staff",)
+        read_only_fields = ("id", "is_staff",)
 
 class TokenBlacklistSerializer(serializers.Serializer):
     refresh_token = serializers.CharField()
