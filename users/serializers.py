@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from users.models import EmailVerificationToken
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -37,3 +39,26 @@ class TokenBlacklistSerializer(serializers.Serializer):
                 self.token.blacklist()
             except Exception:
                 pass
+
+
+class VerifyEmailSerializer(serializers.Serializer):
+    token = serializers.UUIDField()
+
+    def validate_token(self, value):
+        try:
+            token_obj = EmailVerificationToken.objects.get(token=value)
+        except EmailVerificationToken.DoesNotExist:
+            raise serializers.ValidationError("Invalid token")
+
+        if token_obj.is_expired():
+            raise serializers.ValidationError("Token has expired")
+
+        self.token_obj = token_obj
+        return value
+
+    def save(self):
+        user = self.token_obj.user
+        user.is_active = True
+        user.save(update_fields=["is_active"])
+        self.token_obj.delete()
+        return user

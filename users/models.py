@@ -1,8 +1,13 @@
+import uuid
+from datetime import timedelta
+
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import (
     AbstractUser,
     BaseUserManager,
 )
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext as _
 
 
@@ -43,3 +48,17 @@ class User(AbstractUser):
     REQUIRED_FIELDS = []
 
     objects = UserManager()
+
+
+class EmailVerificationToken(models.Model):
+    user = models.ForeignKey(
+        get_user_model(), on_delete=models.CASCADE, related_name="email_tokens"
+    )
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_expired(self):
+        return self.created_at < timezone.now() - timedelta(hours=1)
+
+    def __str__(self):
+        return f"{self.user.email}"
