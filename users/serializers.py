@@ -25,7 +25,7 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        return get_user_model().objects.create_user(**validated_data)
+        return get_user_model().objects.create_user(**validated_data, is_active=False)
 
 
 class UserDetailSerializer(serializers.ModelSerializer):
@@ -37,7 +37,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
             "last_name",
             "email",
             "is_staff"
-        )
+            )
         read_only_fields = ("id", "is_staff",)
 
 class TokenBlacklistSerializer(serializers.Serializer):
