@@ -2,6 +2,7 @@ import os
 import uuid
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import models
 from decimal import Decimal
 from django.utils.text import slugify
@@ -37,12 +38,24 @@ class Author(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    @staticmethod
+    def validate_dates_of_birth_and_death(date_of_birth, date_of_death, error_to_raise):
+        if date_of_birth and date_of_death and date_of_birth > date_of_death:
+            raise error_to_raise("Date of death should be after date of birth")
+
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
     class Meta:
         ordering = ["-created_at"]
         unique_together = ("first_name", "last_name")
+
+    def clean(self):
+        Author.validate_dates_of_birth_and_death(self.date_of_birth, self.date_of_death, ValidationError)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super(Author, self).save(*args, **kwargs)
 
 
 class Book(models.Model):
