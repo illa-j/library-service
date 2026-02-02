@@ -1,15 +1,48 @@
+import os
+import uuid
+
 from django.contrib.auth import get_user_model
 from django.db import models
 from decimal import Decimal
-
+from django.utils.text import slugify
+from django_countries.fields import CountryField
 
 USER = get_user_model()
 
 
+def author_image_file_path(instance, filename):
+    _, extension = os.path.splitext(filename)
+    filename = f"{slugify(f"{instance.first_name} {instance.last_name}")}-{uuid.uuid4()}{extension}"
+
+    return os.path.join("uploads/authors_pictures/", filename)
+
+
 class Author(models.Model):
-    pseudonym = models.CharField(max_length=100, unique=True)
-    first_name = models.CharField(max_length=100, blank=True)
-    last_name = models.CharField(max_length=100, blank=True)
+    photo = models.ImageField(
+        upload_to=author_image_file_path,
+        null=True,
+        blank=True
+    )
+
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+
+    biography = models.TextField(blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+    date_of_death = models.DateField(null=True, blank=True)
+
+    country = CountryField(blank=True)
+
+    wikipedia = models.URLField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
+
+    class Meta:
+        ordering = ["-created_at"]
+        unique_together = ("first_name", "last_name")
 
 
 class Book(models.Model):
