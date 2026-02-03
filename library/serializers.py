@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from library.models import Author
+from library.models import Author, Book
 
 
 class AuthorSerializer(serializers.ModelSerializer):
@@ -28,8 +28,7 @@ class AuthorSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             "id",
-            "photo",
-            "created_at",
+            "photo"
         )
 
 
@@ -37,3 +36,29 @@ class AuthorPhotoSerializer(AuthorSerializer):
     class Meta:
         model = Author
         fields = ("id", "photo")
+
+
+class BookSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Book
+        fields = (
+            "id",
+            "cover_image",
+            "title",
+            "author",
+            "cover",
+            "inventory",
+            "daily_fee",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "cover_image",
+            "created_at",
+        )
+
+
+class BookCoverImageSerializer(AuthorSerializer):
+    class Meta:
+        model = Book
+        fields = ("id", "cover_image")
