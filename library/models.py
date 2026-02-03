@@ -17,6 +17,12 @@ def author_image_file_path(instance, filename):
 
     return os.path.join("uploads/authors_pictures/", filename)
 
+def book_image_file_path(instance, filename):
+    _, extension = os.path.splitext(filename)
+    filename = f"{slugify(instance.title)}-{uuid.uuid4()}{extension}"
+
+    return os.path.join("uploads/books_pictures/", filename)
+
 
 class Author(models.Model):
     photo = models.ImageField(
@@ -62,7 +68,16 @@ class Book(models.Model):
     class CoverChoices(models.TextChoices):
         HARD = "hard", "Hard"
         SOFT = "soft", "Soft"
-    title = models.CharField(max_length=100, unique=True)
+
+    cover_image = models.ImageField(
+        upload_to=book_image_file_path,
+        blank=True,
+        null=True
+    )
+    title = models.CharField(
+        max_length=100,
+        unique=True
+    )
     author = models.ForeignKey(
         Author,
         on_delete=models.CASCADE,
@@ -74,8 +89,10 @@ class Book(models.Model):
         default=CoverChoices.SOFT
     )
     inventory = models.PositiveIntegerField(default=0)
-    daily_fee = models.DecimalField(max_digits=10, decimal_places=2)
+    daily_fee = models.DecimalField(max_digits=3, decimal_places=2)
 
+    def __str__(self):
+        return f"{self.title} by {self.author}"
 
 class Borrowing(models.Model):
     borrow_date = models.DateField(auto_now_add=True)
