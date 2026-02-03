@@ -97,9 +97,29 @@ class BorrowingViewSet(ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        queryset = self.queryset
+
         if user.is_staff:
-            return Borrowing.objects.all()
-        return Borrowing.objects.filter(user=user)
+            user_id = self.request.query_params.get("user_id")
+            if user_id:
+                try:
+                    user_id = int(user_id)
+                except ValueError:
+                    raise ValidationError("Invalid user id.")
+                queryset = queryset.filter(user_id=user_id)
+
+            is_active = self.request.query_params.get("is_active")
+            if is_active is not None:
+                if is_active.lower() in ("1", "true"):
+                    is_active = True
+                elif is_active.lower() in ("0", "false"):
+                    is_active = False
+                else:
+                    raise ValidationError("Invalid is_active value. Use 1 or 0 / true or false.")
+                queryset = queryset.filter(is_active=is_active)
+
+            return queryset
+        return queryset.filter(user=user)
 
     @action(
         detail=True,

@@ -77,11 +77,13 @@ class BorrowingSerializer(serializers.ModelSerializer):
             "expected_return_date",
             "actual_return_date",
             "book",
-            "user"
+            "user",
+            "is_active",
         )
         read_only_fields = (
             "id",
             "actual_return_date",
+            "is_active",
         )
 
 
