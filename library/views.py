@@ -1,21 +1,27 @@
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from library.models import (
     Author,
-    Book
+    Book,
+    Borrowing,
+    Payment
 )
 from library.permissions import (
     IsAdminOrReadOnly,
+    IsBorrowerOrReadOnly,
 )
 from library.serializers import (
     AuthorSerializer,
     AuthorPhotoSerializer,
     BookSerializer,
     BookCoverImageSerializer,
+    BorrowingSerializer,
+    BorrowingReturnSerializer,
 )
 
 
@@ -65,3 +71,68 @@ class BookViewSet(ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BorrowingViewSet(ModelViewSet):
+    serializer_class = BorrowingSerializer
+    queryset = Borrowing.objects.all()
+    permission_classes = (IsBorrowerOrReadOnly,)
+
+    def get_serializer_class(self):
+        if self.action == "return_book":
+            return BorrowingReturnSerializer
+        return BorrowingSerializer
+
+    @action(
+        detail=False,
+        methods=["GET"],
+        url_path="my",
+        permission_classes=(IsBorrowerOrReadOnly,)
+    )
+    def get_my_borrowings(self, request):
+        borrowings = Borrowing.objects.filter(user=request.user)
+        serializer = self.get_serializer(borrowings, many=True)
+        return Response(serializer.data)
+
+    @action(
+        detail=True,
+        methods=["PATCH"],
+        url_path="return",
+        permission_classes=(IsAdminUser,)
+    )
+    def return_book(self, request, pk=None):
+        borrowing = self.get_object()
+        actual_return_date = request.data.get("actual_return_date")
+
+        if not borrowing.is_active:
+            return Response(
+                {"detail": "Borrowing is already returned."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not actual_return_date:
+            borrowing.actual_return_date = timezone.now().date()
+        else:
+            try:
+                borrowing.actual_return_date = timezone.datetime.fromisoformat(actual_return_date).date()
+            except ValueError:
+                return Response(
+                    {"detail": "Invalid date format. Use ISO format."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        borrowing.is_active = False
+        borrowing.save()
+
+        payment = Payment.objects.create(
+            borrowing=borrowing
+        )
+        payment.amount_paid = payment.money_to_pay
+        payment.save()
+
+        return Response(
+            {
+                "detail": f"Borrowing {borrowing.id} marked as returned. Payment (id: {payment.id}) created automatically."
+            },
+            status=status.HTTP_200_OK
+        )

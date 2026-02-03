@@ -1,7 +1,11 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from library.models import Author, Book
+from library.models import (
+    Author,
+    Book,
+    Borrowing
+)
 
 
 class AuthorSerializer(serializers.ModelSerializer):
@@ -62,3 +66,32 @@ class BookCoverImageSerializer(AuthorSerializer):
     class Meta:
         model = Book
         fields = ("id", "cover_image")
+
+
+class BorrowingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Borrowing
+        fields = (
+            "id",
+            "borrow_date",
+            "expected_return_date",
+            "actual_return_date",
+            "book",
+            "user"
+        )
+        read_only_fields = (
+            "id",
+            "actual_return_date",
+        )
+
+
+class BorrowingReturnSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Borrowing
+        fields = (
+            "id",
+            "actual_return_date",
+        )
+        read_only_fields = (
+            "id",
+        )

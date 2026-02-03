@@ -3,7 +3,8 @@ from rest_framework import routers
 
 from library.views import (
     AuthorViewSet,
-    BookViewSet
+    BookViewSet,
+    BorrowingViewSet
 )
 
 app_name = "library"
@@ -11,6 +12,7 @@ app_name = "library"
 router = routers.DefaultRouter()
 router.register("authors", AuthorViewSet)
 router.register("books", BookViewSet)
+router.register("borrowings", BorrowingViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),
