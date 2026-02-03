@@ -4,7 +4,8 @@ from rest_framework.exceptions import ValidationError
 from library.models import (
     Author,
     Book,
-    Borrowing
+    Borrowing,
+    Payment
 )
 
 
@@ -87,6 +88,15 @@ class BorrowingSerializer(serializers.ModelSerializer):
         )
 
 
+class BorrowingDetailSerializer(BorrowingSerializer):
+    user = serializers.SlugRelatedField(
+        many=False,
+        read_only=True,
+        slug_field="email"
+    )
+    book = BookSerializer(many=False, read_only=True)
+
+
 class BorrowingReturnSerializer(serializers.ModelSerializer):
     class Meta:
         model = Borrowing
@@ -96,4 +106,53 @@ class BorrowingReturnSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             "id",
+        )
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    borrowing_book_title = serializers.CharField(
+        source="borrowing.book.title",
+        read_only=True
+    )
+    borrowing_user_email = serializers.CharField(
+        source="borrowing.user.email",
+        read_only=True
+    )
+    class Meta:
+        model = Payment
+        fields = (
+            "id",
+            "status",
+            "type",
+            "borrowing_book_title",
+            "borrowing_user_email",
+            "amount_paid"
+        )
+        read_only_fields = (
+            "id",
+            "status",
+            "type",
+            "borrowing_book_title",
+            "borrowing_user_email",
+            "amount_paid"
+        )
+
+
+class PaymentDetailSerializer(serializers.ModelSerializer):
+    borrowing = BorrowingDetailSerializer(many=False, read_only=True)
+    class Meta:
+        model = Payment
+        fields = (
+            "id",
+            "status",
+            "type",
+            "borrowing",
+            "amount_paid"
+        )
+        read_only_fields = (
+            "id",
+            "status",
+            "type",
+            "borrowing",
+            "amount_paid"
         )

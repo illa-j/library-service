@@ -1,11 +1,11 @@
 from django.db import transaction
 from django.utils import timezone
-from rest_framework import status
+from rest_framework import status, mixins
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ModelViewSet, GenericViewSet
 
 from library.models import (
     Author,
@@ -24,6 +24,9 @@ from library.serializers import (
     BookCoverImageSerializer,
     BorrowingSerializer,
     BorrowingReturnSerializer,
+    PaymentSerializer,
+    BorrowingDetailSerializer,
+    PaymentDetailSerializer,
 )
 
 
@@ -75,7 +78,12 @@ class BookViewSet(ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class BorrowingViewSet(ModelViewSet):
+class BorrowingViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    GenericViewSet
+):
     serializer_class = BorrowingSerializer
     queryset = Borrowing.objects.all()
     permission_classes = (IsBorrowerOrReadOnly,)
@@ -93,6 +101,8 @@ class BorrowingViewSet(ModelViewSet):
     def get_serializer_class(self):
         if self.action == "return_book":
             return BorrowingReturnSerializer
+        if self.action == "retrieve":
+            return BorrowingDetailSerializer
         return BorrowingSerializer
 
     def get_queryset(self):
@@ -167,3 +177,35 @@ class BorrowingViewSet(ModelViewSet):
                 },
                 status=status.HTTP_200_OK
             )
+
+
+class PaymentViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    GenericViewSet
+):
+    serializer_class = PaymentSerializer
+    queryset = Payment.objects.all()
+    permission_classes = (IsAuthenticated,)
+
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return PaymentDetailSerializer
+        return PaymentSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = self.queryset
+
+        if user.is_staff:
+            book_title = self.request.query_params.get("book_title")
+            if book_title:
+                queryset = queryset.filter(borrowing__book__title__icontains=book_title)
+
+            user_email = self.request.query_params.get("user_email")
+            if user_email:
+                queryset = queryset.filter(borrowing__user__email__icontains=user_email)
+        else:
+            queryset = queryset.filter(borrowing__user=user)
+
+        return queryset
