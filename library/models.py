@@ -161,3 +161,15 @@ class Payment(models.Model):
         overdue_amount = Decimal(overdue_days) * daily_fee * Decimal("1.5")
 
         return base_amount + overdue_amount
+
+    def save(self, *args, **kwargs):
+        borrowing = self.borrowing
+
+        if borrowing.actual_return_date and borrowing.expected_return_date:
+            overdue_days = max((borrowing.actual_return_date - borrowing.expected_return_date).days, 0)
+            if overdue_days > 0:
+                self.type = Payment.TypeChoices.FINE
+            else:
+                self.type = Payment.TypeChoices.PAYMENT
+
+        super().save(*args, **kwargs)
