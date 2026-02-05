@@ -1,4 +1,5 @@
 import stripe
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
@@ -76,6 +77,7 @@ class VerifyEmailSerializer(serializers.Serializer):
     def save(self):
         user = self.token_obj.user
         user.is_active = True
+        stripe.api_key = settings.STRIPE_SECRET_KEY
         customer = stripe.Customer.create(
             email=user.email,
             name=user.username
