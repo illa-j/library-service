@@ -14,7 +14,9 @@ class AuthorSerializer(serializers.ModelSerializer):
         date_of_death = attrs.get("date_of_death", None)
         date_of_birth = attrs.get("date_of_birth", None)
         if date_of_death and date_of_birth:
-            Author.validate_dates_of_birth_and_death(date_of_birth, date_of_death, ValidationError)
+            Author.validate_dates_of_birth_and_death(
+                date_of_birth, date_of_death, ValidationError
+            )
         return attrs
 
     class Meta:
@@ -31,10 +33,7 @@ class AuthorSerializer(serializers.ModelSerializer):
             "wikipedia",
             "created_at",
         )
-        read_only_fields = (
-            "id",
-            "photo"
-        )
+        read_only_fields = ("id", "photo")
 
 
 class AuthorPhotoSerializer(AuthorSerializer):
@@ -89,11 +88,7 @@ class BorrowingSerializer(serializers.ModelSerializer):
 
 
 class BorrowingDetailSerializer(BorrowingSerializer):
-    user = serializers.SlugRelatedField(
-        many=False,
-        read_only=True,
-        slug_field="email"
-    )
+    user = serializers.SlugRelatedField(many=False, read_only=True, slug_field="email")
     book = BookSerializer(many=False, read_only=True)
 
 
@@ -104,20 +99,17 @@ class BorrowingReturnSerializer(serializers.ModelSerializer):
             "id",
             "actual_return_date",
         )
-        read_only_fields = (
-            "id",
-        )
+        read_only_fields = ("id",)
 
 
 class PaymentSerializer(serializers.ModelSerializer):
     borrowing_book_title = serializers.CharField(
-        source="borrowing.book.title",
-        read_only=True
+        source="borrowing.book.title", read_only=True
     )
     borrowing_user_email = serializers.CharField(
-        source="borrowing.user.email",
-        read_only=True
+        source="borrowing.user.email", read_only=True
     )
+
     class Meta:
         model = Payment
         fields = (
@@ -126,7 +118,9 @@ class PaymentSerializer(serializers.ModelSerializer):
             "type",
             "borrowing_book_title",
             "borrowing_user_email",
-            "amount_paid"
+            "stripe_session_url",
+            "stripe_session_id",
+            "amount_to_pay",
         )
         read_only_fields = (
             "id",
@@ -134,12 +128,13 @@ class PaymentSerializer(serializers.ModelSerializer):
             "type",
             "borrowing_book_title",
             "borrowing_user_email",
-            "amount_paid"
+            "amount_to_pay",
         )
 
 
 class PaymentDetailSerializer(serializers.ModelSerializer):
     borrowing = BorrowingDetailSerializer(many=False, read_only=True)
+
     class Meta:
         model = Payment
         fields = (
@@ -147,12 +142,20 @@ class PaymentDetailSerializer(serializers.ModelSerializer):
             "status",
             "type",
             "borrowing",
-            "amount_paid"
+            "stripe_session_url",
+            "stripe_session_id",
+            "amount_to_pay",
         )
         read_only_fields = (
             "id",
             "status",
             "type",
             "borrowing",
-            "amount_paid"
+            "stripe_session_url",
+            "stripe_session_id",
+            "amount_to_pay",
         )
+
+
+class PaymentRenewSerializer(serializers.Serializer):
+    payment_id = serializers.IntegerField()

@@ -1,4 +1,8 @@
+from decimal import Decimal, ROUND_HALF_UP
+
+import stripe
 from django.db import transaction
+from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status, mixins
 from rest_framework.decorators import action
@@ -27,13 +31,48 @@ from library.serializers import (
     PaymentSerializer,
     BorrowingDetailSerializer,
     PaymentDetailSerializer,
+    PaymentRenewSerializer,
 )
+
+from django.conf import settings
+
+
+def create_stripe_checkout_session(payment, request):
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    return stripe.checkout.Session.create(
+        customer=payment.borrowing.user.stripe_customer_id,
+        line_items=[
+            {
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": int(
+                        (payment.amount_to_pay * Decimal("100")).quantize(
+                            Decimal("1"), rounding=ROUND_HALF_UP
+                        )
+                    ),
+                    "product_data": {
+                        "name": "Book Borrowing Payment",
+                    },
+                },
+                "quantity": 1,
+            }
+        ],
+        mode="payment",
+        success_url=request.build_absolute_uri(reverse("library:payment-success"))
+        + "?session_id={CHECKOUT_SESSION_ID}",
+        cancel_url=request.build_absolute_uri(reverse("library:payment-cancel"))
+        + "?session_id={CHECKOUT_SESSION_ID}",
+        metadata={"payment_id": str(payment.id)},
+    )
 
 
 class AuthorViewSet(ModelViewSet):
     serializer_class = AuthorSerializer
     queryset = Author.objects.all()
-    permission_classes = (IsAuthenticated, IsAdminOrReadOnly,)
+    permission_classes = (
+        IsAuthenticated,
+        IsAdminOrReadOnly,
+    )
 
     def get_serializer_class(self):
         if self.action == "upload_photo":
@@ -57,7 +96,10 @@ class AuthorViewSet(ModelViewSet):
 class BookViewSet(ModelViewSet):
     serializer_class = BookSerializer
     queryset = Book.objects.all()
-    permission_classes = (IsAuthenticated, IsAdminOrReadOnly,)
+    permission_classes = (
+        IsAuthenticated,
+        IsAdminOrReadOnly,
+    )
 
     def get_serializer_class(self):
         if self.action == "upload_cover_image":
@@ -82,7 +124,7 @@ class BorrowingViewSet(
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
-    GenericViewSet
+    GenericViewSet,
 ):
     serializer_class = BorrowingSerializer
     queryset = Borrowing.objects.all()
@@ -125,7 +167,9 @@ class BorrowingViewSet(
                 elif is_active.lower() in ("0", "false"):
                     is_active = False
                 else:
-                    raise ValidationError("Invalid is_active value. Use 1 or 0 / true or false.")
+                    raise ValidationError(
+                        "Invalid is_active value. Use 1 or 0 / true or false."
+                    )
                 queryset = queryset.filter(is_active=is_active)
 
             return queryset
@@ -135,7 +179,7 @@ class BorrowingViewSet(
         detail=True,
         methods=["PATCH"],
         url_path="return",
-        permission_classes=(IsAdminUser,)
+        permission_classes=(IsAdminUser,),
     )
     def return_book(self, request, pk=None):
         with transaction.atomic():
@@ -145,18 +189,20 @@ class BorrowingViewSet(
             if not borrowing.is_active:
                 return Response(
                     {"detail": "Borrowing is already returned."},
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             if not actual_return_date:
                 borrowing.actual_return_date = timezone.now().date()
             else:
                 try:
-                    borrowing.actual_return_date = timezone.datetime.fromisoformat(actual_return_date).date()
+                    borrowing.actual_return_date = timezone.datetime.fromisoformat(
+                        actual_return_date
+                    ).date()
                 except ValueError:
                     return Response(
                         {"detail": "Invalid date format. Use ISO format."},
-                        status=status.HTTP_400_BAD_REQUEST
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
 
             borrowing.is_active = False
@@ -168,22 +214,22 @@ class BorrowingViewSet(
             payment = Payment.objects.create(
                 borrowing=borrowing,
             )
-            payment.amount_paid = payment.money_to_pay
+            payment.amount_to_pay = payment.money_to_pay
+
+            checkout_session = create_stripe_checkout_session(payment, request)
+            payment.stripe_session_id = checkout_session.id
+            payment.stripe_session_url = checkout_session.url
             payment.save()
 
             return Response(
                 {
                     "detail": f"Borrowing {borrowing.id} marked as returned. Payment (id: {payment.id}) created automatically."
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
 
 
-class PaymentViewSet(
-    mixins.ListModelMixin,
-    mixins.RetrieveModelMixin,
-    GenericViewSet
-):
+class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, GenericViewSet):
     serializer_class = PaymentSerializer
     queryset = Payment.objects.all()
     permission_classes = (IsAuthenticated,)
@@ -191,6 +237,8 @@ class PaymentViewSet(
     def get_serializer_class(self):
         if self.action == "retrieve":
             return PaymentDetailSerializer
+        if self.action == "renew_payment":
+            return PaymentRenewSerializer
         return PaymentSerializer
 
     def get_queryset(self):
@@ -209,3 +257,74 @@ class PaymentViewSet(
             queryset = queryset.filter(borrowing__user=user)
 
         return queryset
+
+    def _get_payment_from_request(self, request):
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            return None
+        return Payment.objects.filter(stripe_session_id=session_id).first()
+
+    @action(detail=True, methods=["POST"], url_path="renew")
+    def renew_payment(self, request, pk=None):
+        payment_id = request.data.get("payment_id")
+
+        if not payment_id:
+            return Response(
+                {"detail": "payment_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            payment = Payment.objects.get(id=payment_id)
+        except Payment.DoesNotExist:
+            return Response(
+                {"detail": "Payment not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if request.user != payment.borrowing.user:
+            return Response(
+                {"detail": "Access denied. You can renew only your own payments."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if payment.status == payment.StatusChoices.PAID:
+            return Response(
+                {"detail": "Payment already completed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if payment.status == payment.StatusChoices.PENDING:
+            return Response(
+                {"detail": "Payment is pending."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        checkout_session = create_stripe_checkout_session(payment, request)
+        payment.stripe_checkout_session_id = checkout_session.id
+        payment.stripe_session_url = checkout_session.url
+        payment.save()
+        return Response(
+            {"detail": "Payment renewed successfully."}, status=status.HTTP_200_OK
+        )
+
+    @action(detail=False, methods=["GET"], url_path="success")
+    def success(self, request):
+        payment = self._get_payment_from_request(request)
+        if not payment:
+            return Response(
+                {"detail": "Invalid session id."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response(
+            {"detail": "Book returned successfully, payment received."},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["GET"], url_path="cancel")
+    def cancel(self, request):
+        payment = self._get_payment_from_request(request)
+        if not payment:
+            return Response(
+                {"detail": "Invalid session id."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response({"detail": "Payment cancelled."}, status=status.HTTP_200_OK)

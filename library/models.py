@@ -17,6 +17,7 @@ def author_image_file_path(instance, filename):
 
     return os.path.join("uploads/authors_pictures/", filename)
 
+
 def book_image_file_path(instance, filename):
     _, extension = os.path.splitext(filename)
     filename = f"{slugify(instance.title)}-{uuid.uuid4()}{extension}"
@@ -25,11 +26,7 @@ def book_image_file_path(instance, filename):
 
 
 class Author(models.Model):
-    photo = models.ImageField(
-        upload_to=author_image_file_path,
-        null=True,
-        blank=True
-    )
+    photo = models.ImageField(upload_to=author_image_file_path, null=True, blank=True)
 
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -57,7 +54,9 @@ class Author(models.Model):
         unique_together = ("first_name", "last_name")
 
     def clean(self):
-        Author.validate_dates_of_birth_and_death(self.date_of_birth, self.date_of_death, ValidationError)
+        Author.validate_dates_of_birth_and_death(
+            self.date_of_birth, self.date_of_death, ValidationError
+        )
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -70,23 +69,12 @@ class Book(models.Model):
         SOFT = "soft", "Soft"
 
     cover_image = models.ImageField(
-        upload_to=book_image_file_path,
-        blank=True,
-        null=True
+        upload_to=book_image_file_path, blank=True, null=True
     )
-    title = models.CharField(
-        max_length=100,
-        unique=True
-    )
-    author = models.ForeignKey(
-        Author,
-        on_delete=models.CASCADE,
-        related_name="books"
-    )
+    title = models.CharField(max_length=100, unique=True)
+    author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name="books")
     cover = models.CharField(
-        max_length=10,
-        choices=CoverChoices.choices,
-        default=CoverChoices.SOFT
+        max_length=10, choices=CoverChoices.choices, default=CoverChoices.SOFT
     )
     inventory = models.PositiveIntegerField(default=0)
     daily_fee = models.DecimalField(max_digits=3, decimal_places=2)
@@ -96,20 +84,13 @@ class Book(models.Model):
     def __str__(self):
         return f"{self.title} by {self.author}"
 
+
 class Borrowing(models.Model):
     borrow_date = models.DateField(auto_now_add=True)
     expected_return_date = models.DateField()
     actual_return_date = models.DateField(blank=True, null=True)
-    book = models.ForeignKey(
-        Book,
-        on_delete=models.PROTECT,
-        related_name="borrowings"
-    )
-    user = models.ForeignKey(
-        USER,
-        on_delete=models.CASCADE,
-        related_name="borrowings"
-    )
+    book = models.ForeignKey(Book, on_delete=models.PROTECT, related_name="borrowings")
+    user = models.ForeignKey(USER, on_delete=models.CASCADE, related_name="borrowings")
     is_active = models.BooleanField(default=True)
 
 
@@ -117,31 +98,25 @@ class Payment(models.Model):
     class StatusChoices(models.TextChoices):
         PAID = "paid", "Paid"
         PENDING = "pending", "Pending"
+        EXPIRED = "expired", "Expired"
 
     class TypeChoices(models.TextChoices):
         PAYMENT = "payment", "Payment"
         FINE = "fine", "Fine"
 
     status = models.CharField(
-        max_length=10,
-        choices=StatusChoices.choices,
-        default=StatusChoices.PENDING
+        max_length=10, choices=StatusChoices.choices, default=StatusChoices.PENDING
     )
     type = models.CharField(
-        max_length=10,
-        choices=TypeChoices.choices,
-        default=TypeChoices.PAYMENT
+        max_length=10, choices=TypeChoices.choices, default=TypeChoices.PAYMENT
     )
     borrowing = models.ForeignKey(
-        Borrowing,
-        on_delete=models.PROTECT,
-        related_name="payments"
+        Borrowing, on_delete=models.PROTECT, related_name="payments"
     )
-    amount_paid = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True
+    stripe_session_url = models.URLField(blank=True, null=True, max_length=500)
+    stripe_session_id = models.TextField(blank=True, null=True)
+    amount_to_pay = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
     )
 
     @property
@@ -166,7 +141,9 @@ class Payment(models.Model):
         borrowing = self.borrowing
 
         if borrowing.actual_return_date and borrowing.expected_return_date:
-            overdue_days = max((borrowing.actual_return_date - borrowing.expected_return_date).days, 0)
+            overdue_days = max(
+                (borrowing.actual_return_date - borrowing.expected_return_date).days, 0
+            )
             if overdue_days > 0:
                 self.type = Payment.TypeChoices.FINE
             else:
