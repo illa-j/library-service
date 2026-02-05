@@ -62,6 +62,17 @@ class BookSerializer(serializers.ModelSerializer):
         )
 
 
+class BookListSerializer(BookSerializer):
+    author = serializers.CharField(
+        source="full_name",
+        read_only=True
+    )
+
+
+class BookDetailSerializer(BookSerializer):
+    author = AuthorSerializer(many=False, read_only=True)
+
+
 class BookCoverImageSerializer(AuthorSerializer):
     class Meta:
         model = Book

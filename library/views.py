@@ -2,6 +2,8 @@ from decimal import Decimal, ROUND_HALF_UP
 
 import stripe
 from django.db import transaction
+from django.db.models import Value
+from django.db.models.functions import Concat
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status, mixins
@@ -32,6 +34,8 @@ from library.serializers import (
     BorrowingDetailSerializer,
     PaymentDetailSerializer,
     PaymentRenewSerializer,
+    BookListSerializer,
+    BookDetailSerializer,
 )
 
 from django.conf import settings
@@ -101,7 +105,21 @@ class BookViewSet(ModelViewSet):
         IsAdminOrReadOnly,
     )
 
+    def get_queryset(self):
+        queryset = self.queryset
+        if self.action == "list":
+            queryset = queryset.annotate(
+                full_name=Concat("author__first_name", Value(" "), "author__last_name")
+            )
+        elif self.action == "retrieve":
+            queryset = queryset.select_related("author")
+        return queryset
+
     def get_serializer_class(self):
+        if self.action == "list":
+            return BookListSerializer
+        if self.action == "retrieve":
+            return BookDetailSerializer
         if self.action == "upload_cover_image":
             return BookCoverImageSerializer
         return BookSerializer
