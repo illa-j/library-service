@@ -7,6 +7,7 @@ from library.models import (
     Borrowing,
     Payment
 )
+from users.serializers import UserDetailSerializer
 
 
 class AuthorSerializer(serializers.ModelSerializer):
@@ -98,8 +99,21 @@ class BorrowingSerializer(serializers.ModelSerializer):
         )
 
 
+class BorrowingListSerializer(BorrowingSerializer):
+    book = serializers.SlugRelatedField(
+        slug_field="title",
+        many=False,
+        read_only=True
+    )
+    user = serializers.SlugRelatedField(
+        slug_field="email",
+        many=False,
+        read_only=True
+    )
+
+
 class BorrowingDetailSerializer(BorrowingSerializer):
-    user = serializers.SlugRelatedField(many=False, read_only=True, slug_field="email")
+    user = UserDetailSerializer(many=False, read_only=True)
     book = BookSerializer(many=False, read_only=True)
 
 

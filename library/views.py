@@ -27,15 +27,16 @@ from library.serializers import (
     AuthorSerializer,
     AuthorPhotoSerializer,
     BookSerializer,
-    BookCoverImageSerializer,
-    BorrowingSerializer,
-    BorrowingReturnSerializer,
-    PaymentSerializer,
-    BorrowingDetailSerializer,
-    PaymentDetailSerializer,
-    PaymentRenewSerializer,
     BookListSerializer,
     BookDetailSerializer,
+    BookCoverImageSerializer,
+    BorrowingSerializer,
+    BorrowingListSerializer,
+    BorrowingDetailSerializer,
+    BorrowingReturnSerializer,
+    PaymentSerializer,
+    PaymentDetailSerializer,
+    PaymentRenewSerializer,
 )
 
 from django.conf import settings
@@ -145,7 +146,7 @@ class BorrowingViewSet(
     GenericViewSet,
 ):
     serializer_class = BorrowingSerializer
-    queryset = Borrowing.objects.all()
+    queryset = Borrowing.objects.select_related("user", "book")
     permission_classes = (IsBorrowerOrReadOnly,)
 
     def perform_create(self, serializer):
@@ -159,10 +160,12 @@ class BorrowingViewSet(
             borrowing.book.save()
 
     def get_serializer_class(self):
-        if self.action == "return_book":
-            return BorrowingReturnSerializer
+        if self.action == "list":
+            return BorrowingListSerializer
         if self.action == "retrieve":
             return BorrowingDetailSerializer
+        if self.action == "return_book":
+            return BorrowingReturnSerializer
         return BorrowingSerializer
 
     def get_queryset(self):
