@@ -1,3 +1,4 @@
+from debug_toolbar.toolbar import debug_toolbar_urls
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -11,4 +12,4 @@ urlpatterns = [
     path("api/users/", include("users.urls")),
     path("api/library/", include("library.urls")),
     path("webhook/", stripe_webhook, name="webhook"),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + debug_toolbar_urls()
