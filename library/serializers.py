@@ -117,15 +117,11 @@ class BorrowingDetailSerializer(BorrowingSerializer):
     book = BookSerializer(many=False, read_only=True)
 
 
-class BorrowingReturnSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Borrowing
-        fields = (
-            "id",
-            "actual_return_date",
-        )
-        read_only_fields = ("id",)
-
+class BorrowingReturnSerializer(serializers.Serializer):
+    actual_return_date = serializers.DateField(
+        required=False,
+        input_formats=["%Y-%m-%d", "%d-%m-%Y"]
+    )
 
 class PaymentSerializer(serializers.ModelSerializer):
     borrowing_book_title = serializers.CharField(

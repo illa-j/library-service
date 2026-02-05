@@ -205,7 +205,8 @@ class BorrowingViewSet(
     def return_book(self, request, pk=None):
         with transaction.atomic():
             borrowing = self.get_object()
-            actual_return_date = request.data.get("actual_return_date")
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
 
             if not borrowing.is_active:
                 return Response(
@@ -213,19 +214,10 @@ class BorrowingViewSet(
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if not actual_return_date:
-                borrowing.actual_return_date = timezone.now().date()
-            else:
-                try:
-                    borrowing.actual_return_date = timezone.datetime.fromisoformat(
-                        actual_return_date
-                    ).date()
-                except ValueError:
-                    return Response(
-                        {"detail": "Invalid date format. Use ISO format."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
+            borrowing.actual_return_date = (
+                    serializer.validated_data.get("actual_return_date")
+                    or timezone.now().date()
+            )
             borrowing.is_active = False
             borrowing.save()
 
