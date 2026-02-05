@@ -252,7 +252,7 @@ class BorrowingViewSet(
 
 class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, GenericViewSet):
     serializer_class = PaymentSerializer
-    queryset = Payment.objects.all()
+    queryset = Payment.objects.select_related("borrowing__user", "borrowing__book")
     permission_classes = (IsAuthenticated,)
 
     def get_serializer_class(self):
