@@ -1,3 +1,4 @@
+import stripe
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
@@ -75,7 +76,12 @@ class VerifyEmailSerializer(serializers.Serializer):
     def save(self):
         user = self.token_obj.user
         user.is_active = True
-        user.save(update_fields=["is_active"])
+        customer = stripe.Customer.create(
+            email=user.email,
+            name=user.username
+        )
+        user.stripe_customer_id = customer.id
+        user.save(update_fields=["stripe_customer_id", "is_active"])
         self.token_obj.delete()
         return user
 
