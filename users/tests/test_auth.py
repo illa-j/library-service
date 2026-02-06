@@ -6,19 +6,12 @@ from rest_framework.test import APITestCase
 
 
 def user_authentication(client, email, password):
-    user = get_user_model().objects.create_user(
-        email=email,
-        password=password
-    )
+    user = get_user_model().objects.create_user(email=email, password=password)
     user.is_active = True
     user.save()
 
     login_response = client.post(
-        reverse("users:token_obtain_pair"),
-        {
-            "email": email,
-            "password": password
-        }
+        reverse("users:token_obtain_pair"), {"email": email, "password": password}
     )
 
     tokens = login_response.data
@@ -30,10 +23,7 @@ class TestUser(APITestCase):
     def test_register_user(self):
         response = self.client.post(
             reverse("users:register"),
-            {
-                "email": "test@example.com",
-                "password": "test_password1234"
-            }
+            {"email": "test@example.com", "password": "test_password1234"},
         )
 
         self.assertEqual(response.status_code, 201)
@@ -42,20 +32,14 @@ class TestUser(APITestCase):
 
     def test_update_user(self):
         access_token = user_authentication(
-            self.client,
-            "test@example.com",
-            "test_password1234"
+            self.client, "test@example.com", "test_password1234"
         )["access"]
 
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
 
         response = self.client.put(
             reverse("users:me"),
-            {
-                "first_name": "Test",
-                "last_name": "Test",
-                "email": "test@example.com"
-            }
+            {"first_name": "Test", "last_name": "Test", "email": "test@example.com"},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -64,9 +48,7 @@ class TestUser(APITestCase):
 
     def test_partial_update_user(self):
         access_token = user_authentication(
-            self.client,
-            "test@example.com",
-            "test_password1234"
+            self.client, "test@example.com", "test_password1234"
         )["access"]
 
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
@@ -75,7 +57,7 @@ class TestUser(APITestCase):
             reverse("users:me"),
             {
                 "first_name": "Test",
-            }
+            },
         )
 
         self.assertEqual(response.status_code, 200)
@@ -84,9 +66,7 @@ class TestUser(APITestCase):
 
     def test_logout_user(self):
         tokens = user_authentication(
-            self.client,
-            "test@example.com",
-            "test_password1234"
+            self.client, "test@example.com", "test_password1234"
         )
 
         refresh_token = tokens["refresh"]
@@ -95,17 +75,11 @@ class TestUser(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
 
         response_logout = self.client.post(
-            reverse("users:logout"),
-            {
-                "refresh_token": refresh_token
-            }
+            reverse("users:logout"), {"refresh_token": refresh_token}
         )
 
         response_verify_token = self.client.post(
-            reverse("users:token_verify"),
-            {
-                "token": refresh_token
-            }
+            reverse("users:token_verify"), {"token": refresh_token}
         )
 
         self.assertEqual(response_logout.status_code, 200)
@@ -119,15 +93,13 @@ class TestUser(APITestCase):
 class MailSendingTests(TransactionTestCase):
     def test_password_changing(self):
         access_token = user_authentication(
-            self.client,
-            "test@example.com",
-            "test_password1234"
+            self.client, "test@example.com", "test_password1234"
         )["access"]
 
         response = self.client.post(
             reverse("users:password_change"),
             {"password": "test_password5678"},
-            HTTP_AUTHORIZATION=f"Bearer {access_token}"
+            HTTP_AUTHORIZATION=f"Bearer {access_token}",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -139,10 +111,7 @@ class MailSendingTests(TransactionTestCase):
     def test_registration(self):
         response = self.client.post(
             reverse("users:register"),
-            {
-                "email": "test@example.com",
-                "password": "test_password1234"
-            }
+            {"email": "test@example.com", "password": "test_password1234"},
         )
 
         self.assertEqual(response.status_code, 201)

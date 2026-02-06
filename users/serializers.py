@@ -1,14 +1,14 @@
+from datetime import timedelta
+
 import stripe
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from users.models import (
-    EmailVerificationToken,
-    PasswordChangeToken
-)
+from users.models import EmailVerificationToken, PasswordChangeToken, TelegramToken
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -20,9 +20,7 @@ class UserSerializer(serializers.ModelSerializer):
             "password": {
                 "write_only": True,
                 "min_length": 5,
-                "style": {
-                    "input_type": "password"
-                }
+                "style": {"input_type": "password"},
             }
         }
 
@@ -33,14 +31,12 @@ class UserSerializer(serializers.ModelSerializer):
 class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
-        fields = (
+        fields = ("id", "first_name", "last_name", "email", "is_staff")
+        read_only_fields = (
             "id",
-            "first_name",
-            "last_name",
-            "email",
-            "is_staff"
-            )
-        read_only_fields = ("id", "is_staff",)
+            "is_staff",
+        )
+
 
 class TokenBlacklistSerializer(serializers.Serializer):
     refresh_token = serializers.CharField()
@@ -78,10 +74,7 @@ class VerifyEmailSerializer(serializers.Serializer):
         user = self.token_obj.user
         user.is_active = True
         stripe.api_key = settings.STRIPE_SECRET_KEY
-        customer = stripe.Customer.create(
-            email=user.email,
-            name=user.username
-        )
+        customer = stripe.Customer.create(email=user.email, name=user.username)
         user.stripe_customer_id = customer.id
         user.save(update_fields=["stripe_customer_id", "is_active"])
         self.token_obj.delete()
@@ -93,7 +86,7 @@ class PasswordChangeSerializer(serializers.Serializer):
         write_only=True,
         min_length=5,
         style={"input_type": "password"},
-        validators=[validate_password]
+        validators=[validate_password],
     )
 
 
@@ -119,3 +112,21 @@ class ConfirmPasswordChangeSerializer(serializers.Serializer):
 
         self.token_obj.delete()
         return user
+
+
+class TelegramTokenSerializer(serializers.ModelSerializer):
+    expiration_in = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TelegramToken
+        fields = ("token", "expiration_in")
+        read_only_fields = ("token", "expiration_in")
+
+    def get_expiration_in(self, obj):
+        remaining = (
+            obj.created_at + timedelta(minutes=settings.TELEGRAM_TOKEN_LIFETIME_MINUTES)
+        ) - timezone.now()
+        total_seconds = int(remaining.total_seconds())
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+        return f"{minutes:02d}:{seconds:02d}"

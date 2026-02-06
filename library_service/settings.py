@@ -19,7 +19,9 @@ SECRET_KEY = os.environ["SECRET_KEY"]
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "mabelle-staphylorrhaphic-alfreda.ngrok-free.dev"
+]
 
 INTERNAL_IPS = [
     "127.0.0.1",
@@ -180,6 +182,16 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60
 
+CELERY_BEAT_SCHEDULE = {
+    "check-overdue-every-10-minutes": {
+        "task": "users.tasks.check_overdue_borrowings",
+        "schedule": 60.0,
+    },
+}
+
 STRIPE_WEBHOOK_SECRET=os.environ["STRIPE_WEBHOOK_SECRET"]
 STRIPE_SECRET_KEY = os.environ["STRIPE_SECRET_KEY"]
 STRIPE_PUBLISHABLE_KEY = os.environ["STRIPE_PUBLISHABLE_KEY"]
+
+TELEGRAM_TOKEN_LIFETIME_MINUTES = 10
+TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]

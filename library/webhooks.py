@@ -6,6 +6,7 @@ from stripe import SignatureVerificationError
 from django.http import HttpResponse
 
 from library.models import Payment
+from users.tasks import send_telegram_notification
 
 
 @csrf_exempt
@@ -37,6 +38,14 @@ def stripe_webhook(request):
 
         payment.status = payment.StatusChoices.PAID
         payment.save()
+
+        if payment.borrowing.user.telegram_notifications_enabled:
+            send_telegram_notification.apply_async(
+                args=(
+                    payment.borrowing.user_id,
+                    "Thank you for paying for your borrowing!",
+                )
+            )
 
         return HttpResponse(status=200)
 

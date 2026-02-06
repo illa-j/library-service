@@ -44,6 +44,8 @@ class User(AbstractUser):
     username = None
     email = models.EmailField(_("email address"), unique=True)
     stripe_customer_id = models.CharField(max_length=255, blank=True)
+    telegram_chat_id = models.CharField(max_length=100, blank=True)
+    telegram_notifications_enabled = models.BooleanField(default=False)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -69,7 +71,7 @@ class PasswordChangeToken(models.Model):
     user = models.ForeignKey(
         get_user_model(),
         on_delete=models.CASCADE,
-        related_name="password_change_tokens"
+        related_name="password_change_tokens",
     )
     token = models.UUIDField(default=uuid.uuid4, unique=True)
     password_hash = models.CharField(max_length=128)
@@ -77,3 +79,11 @@ class PasswordChangeToken(models.Model):
 
     def is_expired(self):
         return self.created_at < timezone.now() - timedelta(hours=1)
+
+
+class TelegramToken(models.Model):
+    user = models.OneToOneField(
+        get_user_model(), on_delete=models.CASCADE, related_name="telegram_token"
+    )
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)

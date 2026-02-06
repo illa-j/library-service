@@ -10,8 +10,8 @@ from users.views import (
     VerifyEmailAPIView,
     ConfirmPasswordChangeView,
     PasswordChangeView,
+    TelegramTokenAPIView,
 )
-
 
 app_name = "users"
 
@@ -25,5 +25,10 @@ urlpatterns = [
     path("logout/", LogoutView.as_view(), name="logout"),
     path("verify-email/", VerifyEmailAPIView.as_view(), name="verify_email"),
     path("password-change/", PasswordChangeView.as_view(), name="password_change"),
-    path("confirm-password-change/", ConfirmPasswordChangeView.as_view(), name="confirm_password_change"),
+    path(
+        "confirm-password-change/",
+        ConfirmPasswordChangeView.as_view(),
+        name="confirm_password_change",
+    ),
+    path("telegram-token/", TelegramTokenAPIView.as_view(), name="telegram_token"),
 ]

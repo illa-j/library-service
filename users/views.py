@@ -1,6 +1,10 @@
+from datetime import timedelta
+
+from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.db import transaction
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.generics import CreateAPIView
 from rest_framework.permissions import IsAuthenticated
@@ -10,23 +14,19 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
-    TokenVerifyView
+    TokenVerifyView,
 )
-
-from users.models import (
-    EmailVerificationToken,
-    PasswordChangeToken
-)
+from users.models import EmailVerificationToken, PasswordChangeToken, TelegramToken
 from users.serializers import (
     UserSerializer,
     TokenBlacklistSerializer,
     VerifyEmailSerializer,
-    PasswordChangeSerializer, ConfirmPasswordChangeSerializer, UserDetailSerializer
+    PasswordChangeSerializer,
+    ConfirmPasswordChangeSerializer,
+    UserDetailSerializer,
+    TelegramTokenSerializer,
 )
-from users.tasks import (
-    send_verification_email,
-    send_password_change_confirmation_email
-)
+from users.tasks import send_verification_email, send_password_change_confirmation_email
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -44,7 +44,8 @@ class CreateUserView(generics.CreateAPIView):
                 "message": "verification email sent.",
                 "user": serializer.data,
             },
-            status=status.HTTP_201_CREATED, headers=headers
+            status=status.HTTP_201_CREATED,
+            headers=headers,
         )
 
     def perform_create(self, serializer):
@@ -53,17 +54,12 @@ class CreateUserView(generics.CreateAPIView):
         token = EmailVerificationToken.objects.create(user=user)
 
         verify_link = (
-                self.request.build_absolute_uri(reverse("users:verify_email"))
-                + f"?token={token.token}"
+            self.request.build_absolute_uri(reverse("users:verify_email"))
+            + f"?token={token.token}"
         )
 
         transaction.on_commit(
-            lambda: send_verification_email.apply_async(
-                args=(
-                    verify_link,
-                    user.email
-                )
-            )
+            lambda: send_verification_email.apply_async(args=(verify_link, user.email))
         )
 
 
@@ -81,28 +77,22 @@ class PasswordChangeView(CreateAPIView):
 
         token = PasswordChangeToken.objects.create(
             user=user,
-            password_hash=make_password(serializer.validated_data["password"])
+            password_hash=make_password(serializer.validated_data["password"]),
         )
 
         confirm_link = (
-                self.request.build_absolute_uri(reverse("users:confirm_password_change"))
-                + f"?token={token.token}"
+            self.request.build_absolute_uri(reverse("users:confirm_password_change"))
+            + f"?token={token.token}"
         )
 
         transaction.on_commit(
             lambda: send_password_change_confirmation_email.apply_async(
-                args=(
-                    confirm_link,
-                    user.email
-                )
+                args=(confirm_link, user.email)
             )
         )
 
         return Response(
-            {
-                "message": "confirmation email sent."
-            },
-            status=status.HTTP_200_OK
+            {"message": "confirmation email sent."}, status=status.HTTP_200_OK
         )
 
 
@@ -111,18 +101,13 @@ class ConfirmPasswordChangeView(APIView):
     throttle_scope = "token_verification"
 
     def get(self, request):
-        serializer = ConfirmPasswordChangeSerializer(
-            data=request.query_params
-        )
+        serializer = ConfirmPasswordChangeSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
 
         serializer.save()
 
         return Response(
-            {
-                "detail": "Password changed successfully"
-            },
-            status=status.HTTP_200_OK
+            {"detail": "Password changed successfully"}, status=status.HTTP_200_OK
         )
 
 
@@ -153,10 +138,7 @@ class LogoutView(APIView):
         serializer.save()
 
         return Response(
-            {
-                "message": "Successfully logged out."
-            },
-            status=status.HTTP_200_OK
+            {"message": "Successfully logged out."}, status=status.HTTP_200_OK
         )
 
 
@@ -176,14 +158,31 @@ class ManageUserView(generics.RetrieveUpdateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
-        return Response(
-            serializer.data,
-            status=status.HTTP_200_OK
-        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def partial_update(self, request, *args, **kwargs):
         kwargs["partial"] = True
         return self.update(request, *args, **kwargs)
+
+
+class TelegramTokenAPIView(APIView):
+    serializer_class = TelegramTokenSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        telegram_token = TelegramToken.objects.filter(user=request.user).first()
+        if telegram_token:
+            serializer = TelegramTokenSerializer(telegram_token)
+            if (
+                telegram_token.created_at
+                + timedelta(minutes=settings.TELEGRAM_TOKEN_LIFETIME_MINUTES)
+            ) > timezone.now():
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            telegram_token.delete()
+
+        telegram_token = TelegramToken.objects.create(user=request.user)
+        serializer = TelegramTokenSerializer(telegram_token)
+        return Response(serializer, status=status.HTTP_200_OK)
 
 
 class TokenObtainPairView(TokenObtainPairView):

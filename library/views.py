@@ -36,6 +36,8 @@ from library.serializers import (
 
 from django.conf import settings
 
+from users.tasks import send_telegram_notification
+
 
 def create_stripe_checkout_session(payment, request):
     stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -153,6 +155,13 @@ class BorrowingViewSet(
 
             borrowing.book.inventory -= 1
             borrowing.book.save()
+            if borrowing.user.telegram_notifications_enabled:
+                send_telegram_notification.apply_async(
+                    args=(
+                        borrowing.user_id,
+                        f"You borrowed new book ({borrowing.book})",
+                    )
+                )
 
     def get_serializer_class(self):
         if self.action == "list":
