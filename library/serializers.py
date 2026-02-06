@@ -2,7 +2,12 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from library.models import Author, Book, Borrowing, Payment
+from library.models import (
+    Author,
+    Book,
+    Borrowing,
+    Payment
+)
 from users.serializers import UserDetailSerializer
 
 
@@ -116,7 +121,9 @@ class BorrowingDetailSerializer(BorrowingSerializer):
 
 class BorrowingReturnSerializer(BorrowingSerializer):
     actual_return_date = serializers.DateField(
-        required=False, input_formats=["%Y-%m-%d", "%d-%m-%Y"]
+        required=False,
+        allow_null=True,
+        input_formats=["%Y-%m-%d", "%d-%m-%Y"]
     )
 
     class Meta:
