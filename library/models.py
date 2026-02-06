@@ -102,12 +102,11 @@ class Borrowing(models.Model):
         expected_return_date=None,
         actual_return_date=None,
     ):
-        print(borrowed_date)
-        if expected_return_date and expected_return_date < borrowed_date:
+        if expected_return_date and expected_return_date <= borrowed_date:
             raise error_to_raise(
                 "Expected return date cannot be earlier than borrow date."
             )
-        if actual_return_date and actual_return_date < borrowed_date:
+        if actual_return_date and actual_return_date <= borrowed_date:
             raise error_to_raise(
                 "Actual return date cannot be earlier than borrow date."
             )
@@ -123,6 +122,13 @@ class Borrowing(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super(Borrowing, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"Borrow date: {self.borrow_date}\n"
+            f"Expected return date: {self.expected_return_date}\n"
+            f"Book: {self.book}"
+        )
 
 
 class Payment(models.Model):
@@ -181,3 +187,10 @@ class Payment(models.Model):
                 self.type = Payment.TypeChoices.PAYMENT
 
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"Status: {self.status}\n"
+            f"Type: {self.type}\n"
+            f"Stripe Session URL: {self.stripe_session_url}"
+        )
