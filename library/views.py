@@ -13,12 +13,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
 
-from library.models import (
-    Author,
-    Book,
-    Borrowing,
-    Payment
-)
+from library.models import Author, Book, Borrowing, Payment
 from library.permissions import (
     IsAdminOrReadOnly,
     IsBorrowerOrReadOnly,
@@ -215,8 +210,8 @@ class BorrowingViewSet(
                 )
 
             borrowing.actual_return_date = (
-                    serializer.validated_data.get("actual_return_date")
-                    or timezone.now().date()
+                serializer.validated_data.get("actual_return_date")
+                or timezone.now().date()
             )
             borrowing.is_active = False
             borrowing.save()
@@ -277,24 +272,28 @@ class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, GenericVi
             return None
         return Payment.objects.filter(stripe_session_id=session_id).first()
 
-    @action(detail=True, methods=["POST"], url_path="renew")
-    def renew_payment(self, request, pk=None):
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="renew",
+    )
+    def renew_payment(self, request):
         payment_id = request.data.get("payment_id")
-
         if not payment_id:
             return Response(
-                {"detail": "payment_id is required."},
+                {"detail": "Payment ID is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
-            payment = Payment.objects.get(id=payment_id)
+            payment = Payment.objects.get(pk=payment_id)
         except Payment.DoesNotExist:
             return Response(
-                {"detail": "Payment not found."}, status=status.HTTP_404_NOT_FOUND
+                {"detail": "Payment not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        if request.user != payment.borrowing.user:
+        if request.user != payment.borrowing.user and not request.user.is_staff:
             return Response(
                 {"detail": "Access denied. You can renew only your own payments."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -306,17 +305,38 @@ class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, GenericVi
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if payment.status == payment.StatusChoices.PENDING:
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        try:
+            session = stripe.checkout.Session.retrieve(payment.stripe_session_id)
+        except stripe.error.InvalidRequestError:
+            session = None
+
+        if not session or session.status == "expired":
+            checkout_session = create_stripe_checkout_session(payment, request)
+            payment.stripe_session_id = checkout_session.id
+            payment.stripe_session_url = checkout_session.url
+            payment.status = payment.StatusChoices.PENDING
+            payment.save()
             return Response(
-                {"detail": "Payment is pending."}, status=status.HTTP_400_BAD_REQUEST
+                {
+                    "detail": "Payment session renewed.",
+                    "stripe_session_url": payment.stripe_session_url,
+                },
+                status=status.HTTP_200_OK,
             )
 
-        checkout_session = create_stripe_checkout_session(payment, request)
-        payment.stripe_checkout_session_id = checkout_session.id
-        payment.stripe_session_url = checkout_session.url
-        payment.save()
+        if payment.status == payment.StatusChoices.PENDING:
+            return Response(
+                {
+                    "detail": "Payment is still pending.",
+                    "stripe_session_url": payment.stripe_session_url,
+                },
+                status=status.HTTP_200_OK,
+            )
+
         return Response(
-            {"detail": "Payment renewed successfully."}, status=status.HTTP_200_OK
+            {"detail": "Payment cannot be renewed."},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     @action(detail=False, methods=["GET"], url_path="success")

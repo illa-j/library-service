@@ -5,6 +5,8 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
 from decimal import Decimal
+
+from django.utils import timezone
 from django.utils.text import slugify
 from django_countries.fields import CountryField
 
@@ -92,6 +94,35 @@ class Borrowing(models.Model):
     book = models.ForeignKey(Book, on_delete=models.PROTECT, related_name="borrowings")
     user = models.ForeignKey(USER, on_delete=models.CASCADE, related_name="borrowings")
     is_active = models.BooleanField(default=True)
+
+    @staticmethod
+    def validate_expected_and_actual_date_after_borrowed(
+        error_to_raise,
+        borrowed_date,
+        expected_return_date=None,
+        actual_return_date=None,
+    ):
+        print(borrowed_date)
+        if expected_return_date and expected_return_date < borrowed_date:
+            raise error_to_raise(
+                "Expected return date cannot be earlier than borrow date."
+            )
+        if actual_return_date and actual_return_date < borrowed_date:
+            raise error_to_raise(
+                "Actual return date cannot be earlier than borrow date."
+            )
+
+    def clean(self):
+        Borrowing.validate_expected_and_actual_date_after_borrowed(
+            ValidationError,
+            self.borrow_date or timezone.now().date(),
+            self.expected_return_date,
+            self.actual_return_date,
+        )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super(Borrowing, self).save(*args, **kwargs)
 
 
 class Payment(models.Model):
