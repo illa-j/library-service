@@ -20,7 +20,7 @@ SECRET_KEY = os.environ["SECRET_KEY"]
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "mabelle-staphylorrhaphic-alfreda.ngrok-free.dev"
+    os.environ["ALLOWED_HOSTS"]
 ]
 
 INTERNAL_IPS = [
