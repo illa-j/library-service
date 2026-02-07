@@ -25,6 +25,7 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
+        validated_data.pop("is_active", None)
         return get_user_model().objects.create_user(**validated_data, is_active=False)
 
 
