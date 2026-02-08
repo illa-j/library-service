@@ -12,6 +12,11 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    extend_schema,
+    extend_schema_view,
+)
 
 from library.models import Author, Book, Borrowing, Payment
 from library.permissions import (
@@ -68,7 +73,15 @@ def create_stripe_checkout_session(payment, request):
     )
 
 
+@extend_schema_view(
+    list=extend_schema(summary="List authors"),
+    retrieve=extend_schema(summary="Retrieve an author"),
+    create=extend_schema(summary="Create an author (admin only)"),
+    partial_update=extend_schema(summary="Update an author (admin only)"),
+    destroy=extend_schema(summary="Delete an author (admin only)"),
+)
 class AuthorViewSet(ModelViewSet):
+    """Author CRUD endpoints and photo upload."""
     serializer_class = AuthorSerializer
     queryset = Author.objects.all()
     permission_classes = (
@@ -86,7 +99,9 @@ class AuthorViewSet(ModelViewSet):
         detail=True,
         url_path="upload-photo",
     )
+    @extend_schema(summary="Upload author photo (admin only)")
     def upload_photo(self, request, pk=None):
+        """Upload author photo."""
         author = self.get_object()
         serializer = self.get_serializer(author, data=request.data)
         if serializer.is_valid():
@@ -95,7 +110,15 @@ class AuthorViewSet(ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema_view(
+    list=extend_schema(summary="List books"),
+    retrieve=extend_schema(summary="Retrieve a book"),
+    create=extend_schema(summary="Create a book (admin only)"),
+    partial_update=extend_schema(summary="Update a book (admin only)"),
+    destroy=extend_schema(summary="Delete a book (admin only)"),
+)
 class BookViewSet(ModelViewSet):
+    """Book CRUD endpoints and cover image upload."""
     serializer_class = BookSerializer
     queryset = Book.objects.all()
     permission_classes = (
@@ -127,7 +150,9 @@ class BookViewSet(ModelViewSet):
         detail=True,
         url_path="upload-cover-image",
     )
+    @extend_schema(summary="Upload book cover image (admin only)")
     def upload_cover_image(self, request, pk=None):
+        """Upload book cover image."""
         author = self.get_object()
         serializer = self.get_serializer(author, data=request.data)
         if serializer.is_valid():
@@ -136,12 +161,34 @@ class BookViewSet(ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="List borrowings",
+        parameters=[
+            OpenApiParameter(
+                name="user_id",
+                type=int,
+                required=False,
+                description="Admin-only: filter by user id.",
+            ),
+            OpenApiParameter(
+                name="is_active",
+                type=str,
+                required=False,
+                description="Admin-only: filter by active status (true/false or 1/0).",
+            ),
+        ],
+    ),
+    retrieve=extend_schema(summary="Retrieve a borrowing"),
+    create=extend_schema(summary="Create a borrowing (admin only)"),
+)
 class BorrowingViewSet(
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
     GenericViewSet,
 ):
+    """Borrowing list/detail and return action."""
     serializer_class = BorrowingSerializer
     queryset = Borrowing.objects.select_related("user", "book")
     permission_classes = (IsBorrowerOrReadOnly,)
@@ -204,9 +251,12 @@ class BorrowingViewSet(
         detail=True,
         methods=["PATCH"],
         url_path="return",
+        url_name="return",
         permission_classes=(IsAdminUser,),
     )
+    @extend_schema(summary="Mark borrowing as returned (admin only)")
     def return_book(self, request, pk=None):
+        """Mark borrowing as returned (admin only)"""
         with transaction.atomic():
             borrowing = self.get_object()
             serializer = self.get_serializer(data=request.data)
@@ -246,7 +296,28 @@ class BorrowingViewSet(
             )
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="List payments",
+        parameters=[
+            OpenApiParameter(
+                name="book_title",
+                type=str,
+                required=False,
+                description="Admin-only: filter by book title (icontains).",
+            ),
+            OpenApiParameter(
+                name="user_email",
+                type=str,
+                required=False,
+                description="Admin-only: filter by user email (icontains).",
+            ),
+        ],
+    ),
+    retrieve=extend_schema(summary="Retrieve a payment"),
+)
 class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, GenericViewSet):
+    """Payment list/detail and Stripe session management."""
     serializer_class = PaymentSerializer
     queryset = Payment.objects.select_related("borrowing__user", "borrowing__book")
     permission_classes = (IsAuthenticated,)
@@ -285,8 +356,11 @@ class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, GenericVi
         detail=False,
         methods=["POST"],
         url_path="renew",
+        url_name="renew",
     )
+    @extend_schema(summary="Renew Stripe payment session")
     def renew_payment(self, request):
+        """Renew Stripe payment session. """
         payment_id = request.data.get("payment_id")
         if not payment_id:
             return Response(
@@ -349,7 +423,19 @@ class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, GenericVi
         )
 
     @action(detail=False, methods=["GET"], url_path="success")
+    @extend_schema(
+        summary="Payment success redirect",
+        parameters=[
+            OpenApiParameter(
+                name="session_id",
+                type=str,
+                required=True,
+                description="Stripe checkout session id.",
+            )
+        ],
+    )
     def success(self, request):
+        """Payment success redirect. """
         payment = self._get_payment_from_request(request)
         if not payment:
             return Response(
@@ -362,7 +448,19 @@ class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, GenericVi
         )
 
     @action(detail=False, methods=["GET"], url_path="cancel")
+    @extend_schema(
+        summary="Payment cancel redirect",
+        parameters=[
+            OpenApiParameter(
+                name="session_id",
+                type=str,
+                required=True,
+                description="Stripe checkout session id.",
+            )
+        ],
+    )
     def cancel(self, request):
+        """Payment cancel redirect. """
         payment = self._get_payment_from_request(request)
         if not payment:
             return Response(

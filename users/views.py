@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -29,6 +30,9 @@ from users.serializers import (
 from users.tasks import send_verification_email, send_password_change_confirmation_email
 
 
+@extend_schema_view(
+    post=extend_schema(summary="Register user and send verification email")
+)
 class CreateUserView(generics.CreateAPIView):
     serializer_class = UserSerializer
     throttle_classes = [ScopedRateThrottle]
@@ -63,6 +67,9 @@ class CreateUserView(generics.CreateAPIView):
         )
 
 
+@extend_schema_view(
+    post=extend_schema(summary="Request password change (sends confirmation email)")
+)
 class PasswordChangeView(CreateAPIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "auth"
@@ -96,6 +103,9 @@ class PasswordChangeView(CreateAPIView):
         )
 
 
+@extend_schema_view(
+    get=extend_schema(summary="Confirm password change by token")
+)
 class ConfirmPasswordChangeView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "token_verification"
@@ -111,6 +121,9 @@ class ConfirmPasswordChangeView(APIView):
         )
 
 
+@extend_schema_view(
+    get=extend_schema(summary="Verify email by token")
+)
 class VerifyEmailAPIView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "token_verification"
@@ -126,6 +139,9 @@ class VerifyEmailAPIView(APIView):
         )
 
 
+@extend_schema_view(
+    post=extend_schema(summary="Logout and blacklist refresh token")
+)
 class LogoutView(APIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = TokenBlacklistSerializer
@@ -142,6 +158,10 @@ class LogoutView(APIView):
         )
 
 
+@extend_schema_view(
+    get=extend_schema(summary="Get current user profile"),
+    patch=extend_schema(summary="Update current user profile"),
+)
 class ManageUserView(generics.RetrieveUpdateAPIView):
     serializer_class = UserDetailSerializer
     permission_classes = (IsAuthenticated,)
@@ -165,6 +185,9 @@ class ManageUserView(generics.RetrieveUpdateAPIView):
         return self.update(request, *args, **kwargs)
 
 
+@extend_schema_view(
+    get=extend_schema(summary="Get or create a Telegram linking token")
+)
 class TelegramTokenAPIView(APIView):
     serializer_class = TelegramTokenSerializer
     permission_classes = (IsAuthenticated,)
