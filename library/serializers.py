@@ -1,4 +1,5 @@
 from django.utils import timezone
+from django_countries.serializer_fields import CountryField
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
@@ -7,6 +8,8 @@ from users.serializers import UserDetailSerializer
 
 
 class AuthorSerializer(serializers.ModelSerializer):
+    country = CountryField(required=False)
+
     def validate(self, attrs):
         date_of_death = attrs.get("date_of_death", None)
         date_of_birth = attrs.get("date_of_birth", None)
