@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import requests
 from celery import shared_task
 from django.conf import settings
@@ -69,9 +71,10 @@ def send_telegram_notification(self, user_id, text):
 
 @shared_task
 def check_overdue_borrowings():
+    due_soon_date = timezone.now().date() + timedelta(days=1)
     overdue_borrowings = Borrowing.objects.filter(
         is_active=True,
-        expected_return_date__lt=timezone.now(),
+        expected_return_date__lte=due_soon_date,
     )
 
     for borrowing in overdue_borrowings:
@@ -79,7 +82,7 @@ def check_overdue_borrowings():
             not borrowing.user.telegram_notifications_enabled
             or not borrowing.user.telegram_chat_id
         ):
-            return
+            continue
         send_telegram_notification.apply_async(
             args=(borrowing.user_id, "Your borrowing is overdue!")
         )
