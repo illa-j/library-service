@@ -42,7 +42,8 @@ class StripeWebhookTestCase(TestCase):
         self.payment.amount_to_pay = self.payment.money_to_pay
         self.payment.save()
 
-    def test_successful_payment_webhook(self):
+    @patch("stripe.Webhook.construct_event")
+    def test_successful_payment_webhook(self, mock_construct):
         payload = {
             "id": "evt_test_webhook",
             "type": "checkout.session.completed",
@@ -54,22 +55,22 @@ class StripeWebhookTestCase(TestCase):
             },
         }
 
-        with patch("stripe.Webhook.construct_event") as mock_construct:
-            mock_construct.return_value = payload
+        mock_construct.return_value = payload
 
-            response = self.client.post(
-                self.webhook_url,
-                data=json.dumps(payload),
-                content_type="application/json",
-                HTTP_STRIPE_SIGNATURE="t=123,v1=sig",
-            )
+        response = self.client.post(
+            self.webhook_url,
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="t=123,v1=sig",
+        )
 
-            self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 200)
 
-            self.payment.refresh_from_db()
-            self.assertEqual(self.payment.status, Payment.StatusChoices.PAID)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.StatusChoices.PAID)
 
-    def test_webhook_with_invalid_session_id(self):
+    @patch("stripe.Webhook.construct_event")
+    def test_webhook_with_invalid_session_id(self, mock_construct):
         payload = {
             "id": "evt_test_webhook",
             "type": "checkout.session.completed",
@@ -81,43 +82,43 @@ class StripeWebhookTestCase(TestCase):
             },
         }
 
-        with patch("stripe.Webhook.construct_event") as mock_construct:
-            mock_construct.return_value = payload
+        mock_construct.return_value = payload
 
-            response = self.client.post(
-                self.webhook_url,
-                data=json.dumps(payload),
-                content_type="application/json",
-                HTTP_STRIPE_SIGNATURE="t=123,v1=sig",
-            )
+        response = self.client.post(
+            self.webhook_url,
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="t=123,v1=sig",
+        )
 
-            self.assertIn(response.status_code, [200, 404])
+        self.assertEqual(response.status_code, 200)
 
-            self.payment.refresh_from_db()
-            self.assertEqual(self.payment.status, Payment.StatusChoices.PENDING)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.StatusChoices.PENDING)
 
-    def test_webhook_signature_verification_fails(self):
+    @patch("stripe.Webhook.construct_event")
+    def test_webhook_signature_verification_fails(self, mock_construct):
         payload = {"type": "checkout.session.completed"}
 
-        with patch("stripe.Webhook.construct_event") as mock_construct:
-            import stripe
-            mock_construct.side_effect = stripe.error.SignatureVerificationError(
-                "Invalid signature", "sig_header"
-            )
+        import stripe
+        mock_construct.side_effect = stripe.error.SignatureVerificationError(
+            "Invalid signature", "sig_header"
+        )
 
-            response = self.client.post(
-                self.webhook_url,
-                data=json.dumps(payload),
-                content_type="application/json",
-                HTTP_STRIPE_SIGNATURE="invalid",
-            )
+        response = self.client.post(
+            self.webhook_url,
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="invalid",
+        )
 
-            self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 400)
 
-            self.payment.refresh_from_db()
-            self.assertEqual(self.payment.status, Payment.StatusChoices.PENDING)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.StatusChoices.PENDING)
 
-    def test_webhook_idempotency(self):
+    @patch("stripe.Webhook.construct_event")
+    def test_webhook_idempotency(self, mock_construct):
         payload = {
             "id": "evt_test_webhook",
             "type": "checkout.session.completed",
@@ -129,30 +130,30 @@ class StripeWebhookTestCase(TestCase):
             },
         }
 
-        with patch("stripe.Webhook.construct_event") as mock_construct:
-            mock_construct.return_value = payload
+        mock_construct.return_value = payload
 
-            response1 = self.client.post(
-                self.webhook_url,
-                data=json.dumps(payload),
-                content_type="application/json",
-                HTTP_STRIPE_SIGNATURE="t=123,v1=sig",
-            )
+        response1 = self.client.post(
+            self.webhook_url,
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="t=123,v1=sig",
+        )
 
-            response2 = self.client.post(
-                self.webhook_url,
-                data=json.dumps(payload),
-                content_type="application/json",
-                HTTP_STRIPE_SIGNATURE="t=123,v1=sig",
-            )
+        response2 = self.client.post(
+            self.webhook_url,
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="t=123,v1=sig",
+        )
 
-            self.assertEqual(response1.status_code, 200)
-            self.assertEqual(response2.status_code, 200)
+        self.assertEqual(response1.status_code, 200)
+        self.assertEqual(response2.status_code, 200)
 
-            self.payment.refresh_from_db()
-            self.assertEqual(self.payment.status, Payment.StatusChoices.PAID)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.StatusChoices.PAID)
 
-    def test_changing_payment_status_to_expired(self):
+    @patch("stripe.Webhook.construct_event")
+    def test_changing_payment_status_to_expired(self, mock_construct):
         payload = {
             "id": "evt_test_webhook_expired",
             "object": "event",
@@ -168,22 +169,22 @@ class StripeWebhookTestCase(TestCase):
         timestamp = "1234567890"
         payload_json = json.dumps(payload)
 
-        with patch("stripe.Webhook.construct_event") as mock_construct:
-            mock_construct.return_value = payload
+        mock_construct.return_value = payload
 
-            response = self.client.post(
-                self.webhook_url,
-                data=payload_json,
-                content_type="application/json",
-                HTTP_STRIPE_SIGNATURE=f"t={timestamp},v1=signature",
-            )
+        response = self.client.post(
+            self.webhook_url,
+            data=payload_json,
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE=f"t={timestamp},v1=signature",
+        )
 
-            self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 200)
 
-            self.payment.refresh_from_db()
-            self.assertEqual(self.payment.status, Payment.StatusChoices.EXPIRED)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.StatusChoices.EXPIRED)
 
-    def test_expired_session_with_nonexistent_payment(self):
+    @patch("stripe.Webhook.construct_event")
+    def test_expired_session_with_nonexistent_payment(self, mock_construct):
         payload = {
             "id": "evt_test_webhook_expired_missing",
             "object": "event",
@@ -199,14 +200,13 @@ class StripeWebhookTestCase(TestCase):
         timestamp = "1234567890"
         payload_json = json.dumps(payload)
 
-        with patch("stripe.Webhook.construct_event") as mock_construct:
-            mock_construct.return_value = payload
+        mock_construct.return_value = payload
 
-            response = self.client.post(
-                self.webhook_url,
-                data=payload_json,
-                content_type="application/json",
-                HTTP_STRIPE_SIGNATURE=f"t={timestamp},v1=signature",
-            )
+        response = self.client.post(
+            self.webhook_url,
+            data=payload_json,
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE=f"t={timestamp},v1=signature",
+        )
 
-            self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 200)
