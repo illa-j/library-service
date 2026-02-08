@@ -20,6 +20,7 @@ Library Service API is a backend solution for managing a library catalog and len
 - **Telegram Integration**:
   - Telegram webhook with basic commands.
   - Telegram linking token endpoint for account linking.
+  - Telegram notifications about borrowing (overdue & creation) and successful payments.
 - **API Documentation**: Interactive documentation using Swagger UI and ReDoc (drf-spectacular).
 - **Throttling & Pagination**: Rate limiting and limit/offset pagination.
 - **Background Tasks**: Celery worker + Celery beat for scheduled tasks.
