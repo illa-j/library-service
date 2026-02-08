@@ -102,11 +102,11 @@ class Borrowing(models.Model):
         expected_return_date=None,
         actual_return_date=None,
     ):
-        if expected_return_date and expected_return_date <= borrowed_date:
+        if expected_return_date and expected_return_date < borrowed_date:
             raise error_to_raise(
                 "Expected return date cannot be earlier than borrow date."
             )
-        if actual_return_date and actual_return_date <= borrowed_date:
+        if actual_return_date and actual_return_date < borrowed_date:
             raise error_to_raise(
                 "Actual return date cannot be earlier than borrow date."
             )
@@ -163,7 +163,7 @@ class Payment(models.Model):
         borrow_date = borrowing.borrow_date
         actual_return_date = borrowing.actual_return_date
         expected_return_date = borrowing.expected_return_date
-        daily_fee = borrowing.book.daily_fee
+        daily_fee = Decimal(str(borrowing.book.daily_fee))
 
         total_days = max((actual_return_date - borrow_date).days, 1)
 
