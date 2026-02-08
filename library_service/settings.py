@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -21,6 +20,10 @@ DEBUG = True
 
 ALLOWED_HOSTS = [
     os.environ["ALLOWED_HOSTS"]
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    os.environ["CSRF_TRUSTED_ORIGINS"]
 ]
 
 INTERNAL_IPS = [
