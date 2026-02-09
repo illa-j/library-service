@@ -1,6 +1,10 @@
 # Library Service API
 
-Library Service API is a backend solution for managing a library catalog and lending workflow. It provides a structured REST API built with Django REST Framework, including authentication, author/book management, borrowings, payments (Stripe), Telegram notifications, and background tasks with Celery.
+Library Service API is a backend solution for managing a library catalog and lending workflows. It provides a structured REST API built with Django REST Framework, featuring authentication, author and book management, borrowing operations, Stripe-based payments, Telegram notifications, and background task processing with Celery and Redis. The system also includes a custom Telegram bot that interacts with the API to provide real-time user notifications and commands.
+
+## Project Demonstration
+Detailed feature demonstration with screenshots is available in the pull request:
+👉 https://github.com/illa-j/library-service/pull/1
 
 ## Features
 
@@ -92,7 +96,6 @@ Example `.env`:
 
 ```env
 SECRET_KEY=your_django_secret_key
-DEBUG=1
 ALLOWED_HOSTS=127.0.0.1
 
 # Database Configuration
