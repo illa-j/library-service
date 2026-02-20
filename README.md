@@ -10,6 +10,10 @@ Detailed feature demonstration with screenshots is available in the pull request
 
 - **User Management**: Custom user model using email as the unique identifier.
 - **Authentication**: Secure authentication using JWT (JSON Web Tokens).
+- **Google OAuth**:
+   - Get Google authorization URL.
+   - Authenticate using Google authorization code or Google ID token.
+   - Automatic user creation/linking with JWT token issuance.
 - **Authors & Books**:
   - CRUD for authors and books (admin-only for writes).
   - Image upload for author photos and book cover images.
@@ -96,7 +100,8 @@ Example `.env`:
 
 ```env
 SECRET_KEY=your_django_secret_key
-ALLOWED_HOSTS=127.0.0.1
+ALLOWED_HOST=127.0.0.1
+CSRF_TRUSTED_ORIGIN=http://127.0.0.1:8000
 
 # Database Configuration
 POSTGRES_DB=postgres
@@ -120,6 +125,11 @@ STRIPE_PUBLISHABLE_KEY=pk_...
 
 # Telegram
 TELEGRAM_BOT_TOKEN=123456:ABCDEF...
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_REDIRECT_URI=http://127.0.0.1:8000/api/users/google/login/
 ```
 
 ## .env.sample
@@ -151,6 +161,21 @@ This API uses JWT Authentication. To access protected endpoints:
    ```http
    Authorization: Bearer <your_access_token>
    ```
+
+### Google OAuth Authentication
+
+Google OAuth endpoints are available under `/api/users/`:
+
+- `GET /api/users/google/url/` — returns `authorization_url` and `state`.
+- `POST /api/users/google/` — exchanges Google authorization `code` for JWT tokens.
+- `GET /api/users/google/login/?code=<code>&state=<state>` — callback endpoint for code exchange.
+- `POST /api/users/google/token/` — authenticates with Google ID token (`token`) and returns JWT tokens.
+
+Typical OAuth flow:
+
+1. Call `GET /api/users/google/url/` and redirect user to `authorization_url`.
+2. Google redirects to `GOOGLE_REDIRECT_URI` (`/api/users/google/login/`) with `code`.
+3. API exchanges code, creates/links user, and returns JWT `access_token` + `refresh_token`.
 
 ## Base URLs & Endpoints
 

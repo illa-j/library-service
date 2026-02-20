@@ -19,11 +19,11 @@ SECRET_KEY = os.environ["SECRET_KEY"]
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    os.environ["ALLOWED_HOSTS"]
+    os.environ["ALLOWED_HOST"]
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    os.environ["CSRF_TRUSTED_ORIGINS"]
+    os.environ["CSRF_TRUSTED_ORIGIN"]
 ]
 
 INTERNAL_IPS = [
@@ -194,6 +194,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "users.tasks.check_overdue_borrowings",
         "schedule": 84600.0,
     },
+    "cleanup-expired-tokens-and-not-active-users": {
+        "task": "users.tasks.cleanup_expired_tokens_and_not_active_users",
+        "schedule": 600.0,
+    }
 }
 
 STRIPE_WEBHOOK_SECRET=os.environ["STRIPE_WEBHOOK_SECRET"]
@@ -209,3 +213,7 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }
+
+GOOGLE_CLIENT_ID = os.environ["GOOGLE_CLIENT_ID"]
+GOOGLE_CLIENT_SECRET = os.environ["GOOGLE_CLIENT_SECRET"]
+GOOGLE_REDIRECT_URI = os.environ["GOOGLE_REDIRECT_URI"]

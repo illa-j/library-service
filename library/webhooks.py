@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 @csrf_exempt
-def stripe_webhook(request):
+def stripe_webhook(request: HttpResponse) -> HttpResponse:
     payload = request.body
     sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
 

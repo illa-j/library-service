@@ -9,6 +9,7 @@ from django.contrib.auth.models import (
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext as _
+from django.contrib.auth.validators import UnicodeUsernameValidator
 
 
 class UserManager(BaseUserManager):
@@ -43,6 +44,21 @@ class UserManager(BaseUserManager):
 class User(AbstractUser):
     username = None
     email = models.EmailField(_("email address"), unique=True)
+
+    username_validator = UnicodeUsernameValidator()
+    username = models.CharField(
+        _("username"),
+        max_length=150,
+        help_text=_(
+            "Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only."
+        ),
+        validators=[username_validator],
+        unique=False,
+        null=True,
+        blank=True,
+    )
+
+    google_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
     stripe_customer_id = models.CharField(max_length=255, blank=True)
     telegram_chat_id = models.CharField(max_length=100, blank=True)
     telegram_notifications_enabled = models.BooleanField(default=False)
@@ -51,6 +67,10 @@ class User(AbstractUser):
     REQUIRED_FIELDS = []
 
     objects = UserManager()
+
+    @property
+    def is_google_user(self):
+        return bool(self.google_id)
 
 
 class EmailVerificationToken(models.Model):

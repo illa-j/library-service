@@ -2,6 +2,10 @@ from django.urls import path
 
 from users.views import (
     CreateUserView,
+    GoogleAuthCallbackView,
+    GoogleAuthURLView,
+    GoogleAuthView,
+    GoogleTokenAuthView,
     ManageUserView,
     LogoutView,
     TokenObtainPairView,
@@ -31,4 +35,10 @@ urlpatterns = [
         name="confirm_password_change",
     ),
     path("telegram-token/", TelegramTokenAPIView.as_view(), name="telegram_token"),
+    path("google/url/", GoogleAuthURLView.as_view(), name="google-auth-url"),
+    path("google/", GoogleAuthView.as_view(), name="google-auth"),
+    path(
+        "google/login/", GoogleAuthCallbackView.as_view(), name="google-auth-callback"
+    ),
+    path("google/token/", GoogleTokenAuthView.as_view(), name="google-token-auth"),
 ]
