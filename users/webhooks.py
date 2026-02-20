@@ -28,7 +28,7 @@ def get_user_by_telegram_chat_id(chat_id):
 
 
 @csrf_exempt
-def telegram_webhook(request):
+def telegram_webhook(request: HttpResponse) -> HttpResponse:
     body = json.loads(request.body)
     message_text = body["message"]["text"].split(" ")
     user = get_user_by_telegram_chat_id(chat_id=body["message"]["chat"]["id"])

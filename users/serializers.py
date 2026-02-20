@@ -14,7 +14,7 @@ from users.models import EmailVerificationToken, PasswordChangeToken, TelegramTo
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
-        fields = ("id", "email", "password", "is_staff")
+        fields = ("id", "username", "email", "password", "is_staff")
         read_only_fields = ("is_staff",)
         extra_kwargs = {
             "password": {
@@ -32,7 +32,7 @@ class UserSerializer(serializers.ModelSerializer):
 class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
-        fields = ("id", "first_name", "last_name", "email", "is_staff")
+        fields = ("id", "username", "first_name", "last_name", "email", "is_staff")
         read_only_fields = (
             "id",
             "is_staff",
@@ -75,7 +75,7 @@ class VerifyEmailSerializer(serializers.Serializer):
         user = self.token_obj.user
         user.is_active = True
         stripe.api_key = settings.STRIPE_SECRET_KEY
-        customer = stripe.Customer.create(email=user.email, name=user.username)
+        customer = stripe.Customer.create(email=user.email)
         user.stripe_customer_id = customer.id
         user.save(update_fields=["stripe_customer_id", "is_active"])
         self.token_obj.delete()
@@ -131,3 +131,41 @@ class TelegramTokenSerializer(serializers.ModelSerializer):
         minutes = total_seconds // 60
         seconds = total_seconds % 60
         return f"{minutes:02d}:{seconds:02d}"
+
+
+class GoogleAuthSerializer(serializers.Serializer):
+    code = serializers.CharField(
+        required=True, help_text="Authorization code from Google"
+    )
+
+    def validate_code(self, value):
+        if not value:
+            raise serializers.ValidationError("Authorization code is required")
+        return value
+
+
+class GoogleTokenSerializer(serializers.Serializer):
+    token = serializers.CharField(
+        required=True, help_text="Google ID token from frontend"
+    )
+
+    def validate_token(self, value):
+        if not value:
+            raise serializers.ValidationError("Token is required")
+        return value
+
+
+class GoogleAuthResponseSerializer(serializers.Serializer):
+    access_token = serializers.CharField(help_text="JWT access token")
+    refresh_token = serializers.CharField(help_text="JWT refresh token")
+    user = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        user = obj.get("user")
+        return {
+            "id": str(user.id),
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "is_active": user.is_active,
+        }
