@@ -33,7 +33,7 @@ class Author(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
 
-    biography = models.TextField(blank=True)
+    biography = models.CharField(blank=True, null=True, max_length=1000)
     date_of_birth = models.DateField(null=True, blank=True)
     date_of_death = models.DateField(null=True, blank=True)
 
