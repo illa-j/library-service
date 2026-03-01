@@ -31,6 +31,10 @@ Detailed feature demonstration with screenshots is available in the pull request
   - Telegram notifications about borrowing (overdue & creation) and successful payments.
 - **API Documentation**: Interactive documentation using Swagger UI and ReDoc (drf-spectacular).
 - **Throttling & Pagination**: Rate limiting and limit/offset pagination.
+- **Caching**:
+  - Redis-based API caching for selected read endpoints.
+  - Cached author/book list and detail responses.
+  - Cache keys vary by `Authorization` header to prevent cross-user cache leakage.
 - **Background Tasks**: Celery worker + Celery beat for scheduled tasks.
 - **Docker Support**: Containerized environment for development/deployment.
 
@@ -113,6 +117,7 @@ POSTGRES_PORT=5432
 # Celery & Redis Configuration
 CELERY_BROKER_URL=redis://redis:6379/0
 CELERY_RESULT_BACKEND=redis://redis:6379/1
+CACHE_REDIS_URL=redis://redis:6379/2
 
 # Email (SMTP)
 EMAIL_HOST_USER=your_email@gmail.com
